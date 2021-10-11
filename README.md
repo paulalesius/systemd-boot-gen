@@ -1,4 +1,4 @@
-# systemd-boot bootloader entry generator
+# systemd-boot configuration generator
 This project attempts to create the .conf files located in /boot/loader/entries/. It will read two files:
 
 - /etc/os-release - for OS information
