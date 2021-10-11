@@ -1,6 +1,6 @@
 [package]
 name = "systemd-boot-gen"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2018"
 authors = ["Paul Alesius <paul@unnservice.com>"]
 repository = "https://github.com/unnservice/systemd-boot-gen"
