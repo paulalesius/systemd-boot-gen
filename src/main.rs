@@ -39,6 +39,8 @@ fn main() {
     let cmdline = env::var("CMDLINE").unwrap();
 
     alphanumeric_sort::sort_str_slice_rev(&mut versions);
+    versions.reverse();
+
     for version in versions {
         let entry = gen_entry(&machineid, &version, osname.as_str(), cmdline.as_str());
         write_entry(&entry);
