@@ -19,8 +19,8 @@ Example:
 ## Running
 To generate:
 
-    $HOME/.cargo/bin/systemd-boot-gen gen
+    $HOME/.cargo/bin/systemd-boot-gen
 
 To generate and to remove old or invalid config files, add the -r flag:
 
-    $HOME/.cargo/bin/systemd-boot-gen gen -r
+    $HOME/.cargo/bin/systemd-boot-gen -r
