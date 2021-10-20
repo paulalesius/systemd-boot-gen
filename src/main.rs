@@ -1,8 +1,6 @@
-mod entry;
+mod model;
 
-use alphanumeric_sort;
-use dotenv;
-use regex::Regex;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -10,40 +8,94 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::Path;
 
-use entry::Entry;
+use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
+use model::*;
 
 fn main() {
+    let args = App::new(crate_name!())
+        .version(crate_version!())
+        .author(crate_authors!())
+        .about(crate_description!())
+        .arg(
+            Arg::with_name("remove")
+                .short("r")
+                .long("remove")
+                .help("Remove old configs that lack both vmlinuz and/or initramfs files.")
+                .takes_value(false),
+        )
+        .arg(
+            Arg::with_name("help")
+                .short("h")
+                .long("help")
+                .help("Print help")
+                .takes_value(false),
+        )
+        .get_matches();
+
     dotenv::from_filename("/etc/os-release").expect("Expected /etc/os-release");
     dotenv::from_filename("/etc/default/cmdline").expect("Expected /etc/default/cmdline");
     let machineid = std::fs::read_to_string("/etc/machine-id").expect("Expected /etc/machine-id");
     let machineid = machineid.trim().to_string();
+    let osname = env::var("NAME").unwrap();
+    let cmdline = env::var("CMDLINE").unwrap();
 
-    // Now list available initramfs and vmlinuz
-    let re = Regex::new(r"vmlinuz-(.*)").unwrap();
-    let readdir = fs::read_dir("/boot").unwrap();
-    let mut versions = Vec::new();
-    for r in readdir {
-        let path = r.unwrap().path().into_os_string();
-        let path = path.to_str().unwrap();
-        if let Some(capture) = re.captures(path) {
-            if capture.len() == 2 {
-                let ver = capture.get(1).unwrap().as_str().to_owned();
-                if has_initramfs(&ver) {
-                    versions.push(ver);
+    let mut kernels = HashSet::new();
+    find_kernels(&machineid, &mut kernels);
+    find_configs(&machineid, &mut kernels);
+
+    // Now write valid configs that have both vmlinuz and initramfs
+    for kernel in &kernels {
+        match kernel.is_valid() {
+            true => {
+                let entry = kernel_to_entry(&machineid, &osname, &cmdline, kernel);
+                write_entry(&entry);
+            }
+            false => {
+                if args.is_present("remove") {
+                    let config_path =
+                        format!("/boot/loader/entries/{}-{}.conf", machineid, kernel.version);
+                    let path = Path::new(&config_path);
+                    if path.is_file() {
+                        // Config file exists, proceed to remove because it is invalid
+                        println!("Removing invalid config: {}", config_path);
+                        std::fs::remove_file(path).unwrap();
+                    }
                 }
             }
         }
     }
+}
 
-    let osname = env::var("NAME").unwrap();
-    let cmdline = env::var("CMDLINE").unwrap();
+/***
+ * Find existing vmlinuz files and parse versions from the file names,
+ * struct Kernel will cosntruct a Kernel object when instantiated.
+ */
+fn find_kernels(machineid: &str, kernels: &mut HashSet<Kernel>) {
+    for entry in fs::read_dir("/boot").expect("Failed to read /boot") {
+        let file = entry.unwrap().file_name().to_str().unwrap().to_string();
+        if file.starts_with("vmlinuz-") {
+            let version = file.strip_prefix("vmlinuz-").unwrap().to_string();
+            kernels.insert(Kernel::new(machineid, version));
+        }
+    }
+}
 
-    alphanumeric_sort::sort_str_slice_rev(&mut versions);
-    versions.reverse();
-
-    for version in versions {
-        let entry = gen_entry(&machineid, &version, osname.as_str(), cmdline.as_str());
-        write_entry(&entry);
+/***
+ * Find existing configs and parse kernel versions from their file name,
+ * struct Kernel will construct a Kernel object when instantiated.
+ */
+fn find_configs(machineid: &str, kernels: &mut HashSet<Kernel>) {
+    for entry in fs::read_dir("/boot/loader/entries").expect("Failed to read /boot/loader/entry") {
+        let file = entry.unwrap().file_name().to_str().unwrap().to_string();
+        if file.starts_with(&format!("{}-", machineid)) {
+            let version = file
+                .strip_prefix(&format!("{}-", machineid))
+                .unwrap()
+                .strip_suffix(".conf")
+                .unwrap()
+                .to_string();
+            kernels.insert(Kernel::new(machineid, version));
+        }
     }
 }
 
@@ -52,39 +104,12 @@ fn write_entry(entry: &Entry) {
     let file = File::create(&outfile).expect("Expected to create entry file.");
     let mut writer = BufWriter::new(file);
 
-    write!(writer, "{}\n", entry.title).unwrap();
-    write!(writer, "{}\n", entry.version).unwrap();
-    write!(writer, "{}\n", entry.linux).unwrap();
-    write!(writer, "{}\n", entry.initrd).unwrap();
-    write!(writer, "{}\n", entry.options).unwrap();
+    writeln!(writer, "{}", entry.title).unwrap();
+    writeln!(writer, "{}", entry.version).unwrap();
+    writeln!(writer, "{}", entry.linux).unwrap();
+    writeln!(writer, "{}", entry.initrd).unwrap();
+    writeln!(writer, "{}", entry.options).unwrap();
     println!("Wrote systemd-boot config: {}", outfile);
-}
-
-fn has_initramfs(ver: &str) -> bool {
-    // Find matching initramfs
-    let initramfs = format!("/boot/initramfs-{}.img", ver);
-    if Path::new(&initramfs).exists() {
-        return true;
-    }
-    return false;
-}
-
-fn gen_entry(machineid: &str, ver: &str, osname: &str, cmdline: &str) -> Entry {
-    let name = format!("{}-{}.conf", machineid, ver);
-    let title = format!("title {} ({})", osname, ver);
-    let version = format!("version {}", ver);
-    let linux = format!("linux /vmlinuz-{}", ver);
-    let initrd = format!("initrd /initramfs-{}.img", ver);
-    let options = format!("options {}", cmdline);
-
-    Entry {
-        name,
-        title,
-        version,
-        linux,
-        initrd,
-        options,
-    }
 }
 
 #[cfg(test)]
@@ -99,7 +124,14 @@ mod test {
         let osname = "test";
         let cmdline = "none";
 
-        let entry = Entry {
+        let kernel = Kernel {
+            version: version.to_string(),
+            config: false,
+            initramfs: false,
+            vmlinuz: true,
+        };
+
+        let expected = Entry {
             name: String::from("abcdef-1.0.conf"),
             title: String::from("title test (1.0)"),
             version: String::from("version 1.0"),
@@ -107,8 +139,7 @@ mod test {
             initrd: String::from("initrd /initramfs-1.0.img"),
             options: String::from("options none"),
         };
-
-        let constructed = gen_entry(machineid, version, osname, cmdline);
-        assert_eq!(entry, constructed);
+        let existing = kernel_to_entry(machineid, osname, cmdline, &kernel);
+        assert_eq!(expected, existing);
     }
 }
