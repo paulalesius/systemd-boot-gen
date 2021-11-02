@@ -17,6 +17,13 @@ fn main() {
         .author(crate_authors!())
         .about(crate_description!())
         .arg(
+            Arg::with_name("dryrun")
+                .short("d")
+                .long("dryrun")
+                .help("Don't touch anything, print files to stdout.")
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("microcode")
                 .short("u")
                 .long("microcode")
@@ -50,7 +57,11 @@ fn main() {
         match kernel.is_valid() {
             true => {
                 let entry = kernel_to_entry(&machineid, &osname, &cmdline, microcode, kernel);
-                write_entry(&entry);
+                if args.is_present("dryrun") {
+                    dry_run(&entry);
+                } else {
+                    write_entry(&entry);
+                }
             }
             false => {
                 if args.is_present("remove") {
@@ -130,6 +141,18 @@ fn write_entry(entry: &Entry) {
     writeln!(writer, "{}", entry.initrd).unwrap();
     writeln!(writer, "{}", entry.options).unwrap();
     println!("Wrote systemd-boot config: {}", outfile);
+}
+
+fn dry_run(entry: &Entry) {
+    println!("File: {}", entry.name);
+    println!("\t{}", entry.title);
+    println!("\t{}", entry.version);
+    println!("\t{}", entry.linux);
+    if entry.microcode.is_some() {
+        println!("\t{}", entry.microcode.as_ref().unwrap());
+    }
+    println!("\t{}", entry.initrd);
+    println!("\t{}\n", entry.options);
 }
 
 #[cfg(test)]
