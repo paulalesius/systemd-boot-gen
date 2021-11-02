@@ -17,6 +17,13 @@ fn main() {
         .author(crate_authors!())
         .about(crate_description!())
         .arg(
+            Arg::with_name("dryrun")
+                .short("d")
+                .long("dryrun")
+                .help("Dont touch anything, print files to stdout.")
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("remove")
                 .short("r")
                 .long("remove")
@@ -48,7 +55,11 @@ fn main() {
         match kernel.is_valid() {
             true => {
                 let entry = kernel_to_entry(&machineid, &osname, &cmdline, kernel);
-                write_entry(&entry);
+                if args.is_present("dryrun") {
+                    dry_run(&entry);
+                } else {
+                    write_entry(&entry);
+                }
             }
             false => {
                 if args.is_present("remove") {
@@ -110,6 +121,15 @@ fn write_entry(entry: &Entry) {
     writeln!(writer, "{}", entry.initrd).unwrap();
     writeln!(writer, "{}", entry.options).unwrap();
     println!("Wrote systemd-boot config: {}", outfile);
+}
+
+fn dry_run(entry: &Entry) {
+    println!("File: {}", entry.name);
+    println!("\t{}", entry.title);
+    println!("\t{}", entry.version);
+    println!("\t{}", entry.linux);
+    println!("\t{}", entry.initrd);
+    println!("\t{}\n", entry.options);
 }
 
 #[cfg(test)]
