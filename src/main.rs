@@ -31,13 +31,6 @@ fn main() {
                 .help("Remove old configs that lack both vmlinuz and/or initramfs files.")
                 .takes_value(false),
         )
-        .arg(
-            Arg::with_name("help")
-                .short("h")
-                .long("help")
-                .help("Print help")
-                .takes_value(false),
-        )
         .get_matches();
 
     dotenv::from_filename("/etc/os-release").expect("Expected /etc/os-release");
