@@ -2,7 +2,7 @@
 name = "systemd-boot-gen"
 version = "1.1.1"
 edition = "2018"
-authors = ["Paul Alesius <paul@unnservice.com>"]
+authors = ["Paul Alesius <paul@unnservice.com>", "Rafael Delgado Martins <rafael@delgadomartins.com>"]
 repository = "https://github.com/unnservice/systemd-boot-gen"
 license = "GPL-3.0-or-later"
 description = "systemd-boot boot configuration generator"
