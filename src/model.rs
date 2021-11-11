@@ -6,6 +6,7 @@ pub struct Entry {
     pub title: String,
     pub version: String,
     pub linux: String,
+    pub microcode: Option<String>,
     pub initrd: String,
     pub options: String,
 }
@@ -48,11 +49,22 @@ impl Kernel {
     }
 }
 
-pub fn kernel_to_entry(machineid: &str, osname: &str, cmdline: &str, kernel: &Kernel) -> Entry {
+pub fn kernel_to_entry(
+    machineid: &str,
+    osname: &str,
+    cmdline: &str,
+    microcodefile: Option<&str>,
+    kernel: &Kernel,
+) -> Entry {
     let name = format!("{}-{}.conf", machineid, kernel.version);
     let title = format!("title {} ({})", osname, kernel.version);
     let version = format!("version {}", kernel.version);
     let linux = format!("linux /vmlinuz-{}", kernel.version);
+    let microcode = if microcodefile.is_some() {
+        Some(format!("initrd /{}", microcodefile.unwrap().trim()))
+    } else {
+        None
+    };
     let initrd = format!("initrd /initramfs-{}.img", kernel.version);
     let options = format!("options {}", cmdline);
 
@@ -61,6 +73,7 @@ pub fn kernel_to_entry(machineid: &str, osname: &str, cmdline: &str, kernel: &Ke
         title,
         version,
         linux,
+        microcode,
         initrd,
         options,
     }

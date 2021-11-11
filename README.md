@@ -14,13 +14,24 @@ Example:
     CMDLINE="root=UUID=4bd01097-de27-49a3-b6a7-ae60516d1f2c ro rootflags=subvol=root-gentoo resume=UUID=4a6c4856-6dd8-4bab-afcf-a41bdf1c7c33 crypt_root=UUID=c821ecff-229c-4d56-a750-2e1542ea1cdb root_trim=yes intel_iommu=igfx_off keymap=se i915.enable_guc=3 i915.enable_fbc=1 i915.enable_dc=1"
 
 ## Installation
-    cargo install systemd-boot-gen
+    $ cargo install --git https://github.com/rdmartins/systemd-boot-gen
 
+## Dry-Run
+You can check the output of the generated files without changing anything on your system using the -d flag:
+
+    $ systemd-boot-gen -d
+    
 ## Running
 To generate:
 
-    $HOME/.cargo/bin/systemd-boot-gen
+    # systemd-boot-gen
 
 To generate and to remove old or invalid config files, add the -r flag:
 
-    $HOME/.cargo/bin/systemd-boot-gen -r
+    # systemd-boot-gen -r
+
+To generate and include a microcode file, use the -u flag:
+
+    # systemd-boot-gen -u intel-uc.img
+
+The file should be inside **/boot** directory.
